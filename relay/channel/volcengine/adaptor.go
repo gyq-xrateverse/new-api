@@ -93,7 +93,33 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	switch info.RelayMode {
 	case constant.RelayModeImagesGenerations:
-		return request, nil
+		// 🔧 修复：豆包的图生图功能使用 /api/v3/images/generations endpoint
+		// 通过 image 参数区分文生图/图生图，但 dto.ImageRequest.MarshalJSON() 不会输出 Extra 字段
+		// 导致 image、sequential_image_generation 等参数丢失，豆包无法识别图生图请求
+		// 解决方案：手动构建包含 Extra 字段的 map
+
+		// 创建结果 map
+		result := make(map[string]interface{})
+
+		// 1. 序列化标准字段
+		baseJSON, err := json.Marshal(request)
+		if err != nil {
+			return nil, fmt.Errorf("marshal base request failed: %w", err)
+		}
+		if err := json.Unmarshal(baseJSON, &result); err != nil {
+			return nil, fmt.Errorf("unmarshal to map failed: %w", err)
+		}
+
+		// 2. 合并 Extra 字段（豆包特有参数，如 image、sequential_image_generation 等）
+		for k, v := range request.Extra {
+			var value interface{}
+			if err := json.Unmarshal(v, &value); err != nil {
+				return nil, fmt.Errorf("unmarshal extra field %s failed: %w", k, err)
+			}
+			result[k] = value
+		}
+
+		return result, nil
 	case constant.RelayModeImagesEdits:
 
 		var requestBody bytes.Buffer
