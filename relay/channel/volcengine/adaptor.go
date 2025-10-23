@@ -76,7 +76,7 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 			ReqID:     generateRequestID(),
 			Text:      request.Input,
 			Operation: "submit",
-			Model:     "", // 留空使用默认效果,用户可通过metadata传递seed-tts-1.1
+			Model:     info.OriginModelName, // 用户可通过metadata覆盖
 		},
 	}
 
