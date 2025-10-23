@@ -19,3 +19,5 @@ electron/node_modules
 electron/dist
 
 .claude
+
+.plan
