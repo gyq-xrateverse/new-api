@@ -101,7 +101,7 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 			ReqID:        generateRequestID(),
 			Text:         request.Input,
 			Operation:    "submit",
-			Model:        info.OriginModelName,
+			Model:        "",  // 🔧 豆包 TTS API 不需要 model 参数,留空避免 403 错误
 			WithFrontend: 1,
 			FrontendType: "unitTson",
 		},
