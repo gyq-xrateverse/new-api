@@ -75,8 +75,8 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 		Request: VolcengineTTSReqInfo{
 			ReqID:     generateRequestID(),
 			Text:      request.Input,
-			Operation: "submit",
-			Model:     info.OriginModelName, // 用户可通过metadata覆盖
+			Operation: "submit", // 用户可通过metadata覆盖为"query"使用HTTP同步
+			Model:     info.OriginModelName, // 从渠道配置读取,用户可通过metadata覆盖
 		},
 	}
 
