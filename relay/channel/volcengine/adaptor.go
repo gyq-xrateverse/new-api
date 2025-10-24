@@ -28,6 +28,14 @@ const (
 	contextKeyResponseFormat = "response_format"
 )
 
+// 安全地截断字符串用于日志输出
+func safeTruncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
 type Adaptor struct {
 }
 
@@ -49,13 +57,13 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 		return nil, errors.New("unsupported audio relay mode")
 	}
 
-	fmt.Printf("🔍 [ConvertAudioRequest] API Key: %s\n", info.ApiKey[:20]+"...")
+	fmt.Printf("🔍 [ConvertAudioRequest] API Key: %s\n", safeTruncate(info.ApiKey, 20))
 	appID, token, err := parseVolcengineAuth(info.ApiKey)
 	if err != nil {
 		fmt.Printf("❌ [ConvertAudioRequest] API Key解析失败: %v\n", err)
 		return nil, err
 	}
-	fmt.Printf("🔍 [ConvertAudioRequest] AppID: %s, Token: %s...\n", appID, token[:20])
+	fmt.Printf("🔍 [ConvertAudioRequest] AppID: %s, Token: %s\n", appID, safeTruncate(token, 20))
 
 	voiceType := mapVoiceType(request.Voice)
 	speedRatio := request.Speed
@@ -185,7 +193,7 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 
 	fmt.Printf("🔍 关键字段对比:\n")
 	fmt.Printf("  ✓ app.appid:           %s\n", volcRequest.App.AppID)
-	fmt.Printf("  ✓ app.token:           %s...\n", volcRequest.App.Token[:20])
+	fmt.Printf("  ✓ app.token:           %s\n", safeTruncate(volcRequest.App.Token, 20))
 	fmt.Printf("  ✓ app.cluster:         %s\n", volcRequest.App.Cluster)
 	fmt.Printf("  ✓ audio.voice_type:    %s\n", volcRequest.Audio.VoiceType)
 	fmt.Printf("  ✓ audio.encoding:      %s\n", volcRequest.Audio.Encoding)
