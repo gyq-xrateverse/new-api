@@ -89,7 +89,7 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 			Cluster: "volcano_tts",
 		},
 		User: VolcengineTTSUser{
-			UID: "openai_relay_user",
+			UID: "388808087185088",  // 🔧 豆包要求必须是数字字符串格式的 UID
 		},
 		Audio: VolcengineTTSAudio{
 			VoiceType:   voiceType,
