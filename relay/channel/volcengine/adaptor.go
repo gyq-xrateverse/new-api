@@ -42,25 +42,42 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 }
 
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
+	fmt.Printf("\n🔍 [ConvertAudioRequest] 开始处理TTS请求\n")
+	fmt.Printf("🔍 [ConvertAudioRequest] RelayMode: %d\n", info.RelayMode)
+
 	if info.RelayMode != constant.RelayModeAudioSpeech {
 		return nil, errors.New("unsupported audio relay mode")
 	}
 
+	fmt.Printf("🔍 [ConvertAudioRequest] API Key: %s\n", info.ApiKey[:20]+"...")
 	appID, token, err := parseVolcengineAuth(info.ApiKey)
 	if err != nil {
+		fmt.Printf("❌ [ConvertAudioRequest] API Key解析失败: %v\n", err)
 		return nil, err
 	}
+	fmt.Printf("🔍 [ConvertAudioRequest] AppID: %s, Token: %s...\n", appID, token[:20])
 
 	voiceType := mapVoiceType(request.Voice)
 	speedRatio := request.Speed
 	encoding := mapEncoding(request.ResponseFormat)
+
+	fmt.Printf("🔍 [ConvertAudioRequest] 基础参数:\n")
+	fmt.Printf("  - Voice: %s -> %s\n", request.Voice, voiceType)
+	fmt.Printf("  - Speed: %.2f\n", speedRatio)
+	fmt.Printf("  - Format: %s -> %s\n", request.ResponseFormat, encoding)
+	fmt.Printf("  - Input Text: %s\n", request.Input)
+	fmt.Printf("  - OriginModelName: %s\n", info.OriginModelName)
+	fmt.Printf("  - Metadata Length: %d bytes\n", len(request.Metadata))
+	if len(request.Metadata) > 0 {
+		fmt.Printf("  - Metadata Raw: %s\n", string(request.Metadata))
+	}
 
 	c.Set(contextKeyResponseFormat, encoding)
 
 	volcRequest := VolcengineTTSRequest{
 		App: VolcengineTTSApp{
 			AppID:   appID,
-			Token:   token,
+			Token:   "access_token",  // 🔧 豆包要求这里必须是固定字符串 "access_token",不是实际的 token
 			Cluster: "volcano_tts",
 		},
 		User: VolcengineTTSUser{
@@ -82,26 +99,106 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 		},
 	}
 
+	fmt.Printf("\n🔍 [ConvertAudioRequest] 默认请求结构:\n")
+	fmt.Printf("  - Operation: %s\n", volcRequest.Request.Operation)
+	fmt.Printf("  - WithFrontend: %d\n", volcRequest.Request.WithFrontend)
+	fmt.Printf("  - FrontendType: %s\n", volcRequest.Request.FrontendType)
+	fmt.Printf("  - Model: %s\n", volcRequest.Request.Model)
+
 	if len(request.Metadata) > 0 {
+		fmt.Printf("\n🔍 [ConvertAudioRequest] 开始合并 Metadata...\n")
 		if err = json.Unmarshal(request.Metadata, &volcRequest); err != nil {
+			fmt.Printf("❌ [ConvertAudioRequest] Metadata 解析失败: %v\n", err)
 			return nil, fmt.Errorf("error unmarshalling metadata to volcengine request: %w", err)
 		}
+		fmt.Printf("✅ [ConvertAudioRequest] Metadata 合并成功\n")
 	}
+
+	fmt.Printf("\n🔍 [ConvertAudioRequest] 合并后的请求结构:\n")
+	fmt.Printf("  - Operation: %s\n", volcRequest.Request.Operation)
+	fmt.Printf("  - WithFrontend: %d\n", volcRequest.Request.WithFrontend)
+	fmt.Printf("  - FrontendType: %s\n", volcRequest.Request.FrontendType)
+	fmt.Printf("  - Model: %s\n", volcRequest.Request.Model)
+	fmt.Printf("  - TextType: %s\n", volcRequest.Request.TextType)
 
 	c.Set(contextKeyTTSRequest, volcRequest)
 
 	// 根据 operation 设置流式标志
 	if volcRequest.Request.Operation == "submit" {
 		info.IsStream = true
+		fmt.Printf("🔍 [ConvertAudioRequest] 设置为流式模式 (WebSocket)\n")
 	} else {
 		// query 模式或其他模式使用 HTTP 同步
 		info.IsStream = false
+		fmt.Printf("🔍 [ConvertAudioRequest] 设置为同步模式 (HTTP)\n")
 	}
 
 	jsonData, err := json.Marshal(volcRequest)
 	if err != nil {
 		return nil, fmt.Errorf("error marshalling volcengine request: %w", err)
 	}
+
+	// 🔍 调试日志:打印完整的豆包请求体
+	fmt.Printf("\n" + strings.Repeat("=", 80) + "\n")
+	fmt.Printf("🔍 [DEBUG] 发送给豆包的完整请求体:\n")
+	fmt.Printf(strings.Repeat("=", 80) + "\n")
+
+	// 美化打印 JSON
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, jsonData, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(jsonData))
+	}
+
+	fmt.Printf(strings.Repeat("=", 80) + "\n")
+	fmt.Printf("\n📋 对比参考 (tts_http_demo.py 的请求格式):\n")
+	fmt.Printf(strings.Repeat("=", 80) + "\n")
+	fmt.Printf(`{
+  "app": {
+    "appid": "7053342224",
+    "token": "access_token",
+    "cluster": "volcano_tts"
+  },
+  "user": {
+    "uid": "388808087185088"
+  },
+  "audio": {
+    "voice_type": "zh_female_meilinvyou_moon_bigtts",
+    "encoding": "mp3",
+    "speed_ratio": 1.0,
+    "volume_ratio": 1.0,
+    "pitch_ratio": 1.0,
+    "rate": 24000
+  },
+  "request": {
+    "reqid": "<uuid>",
+    "text": "待合成文本",
+    "text_type": "plain",
+    "operation": "query",
+    "with_frontend": 1,
+    "frontend_type": "unitTson"
+  }
+}
+`)
+	fmt.Printf(strings.Repeat("=", 80) + "\n\n")
+
+	fmt.Printf("🔍 关键字段对比:\n")
+	fmt.Printf("  ✓ app.appid:           %s\n", volcRequest.App.AppID)
+	fmt.Printf("  ✓ app.token:           %s...\n", volcRequest.App.Token[:20])
+	fmt.Printf("  ✓ app.cluster:         %s\n", volcRequest.App.Cluster)
+	fmt.Printf("  ✓ audio.voice_type:    %s\n", volcRequest.Audio.VoiceType)
+	fmt.Printf("  ✓ audio.encoding:      %s\n", volcRequest.Audio.Encoding)
+	fmt.Printf("  ✓ audio.speed_ratio:   %.2f\n", volcRequest.Audio.SpeedRatio)
+	fmt.Printf("  ✓ audio.rate:          %d\n", volcRequest.Audio.Rate)
+	fmt.Printf("  ✓ request.text:        %s\n", volcRequest.Request.Text)
+	fmt.Printf("  ✓ request.operation:   %s\n", volcRequest.Request.Operation)
+	fmt.Printf("  ✓ request.with_frontend: %d\n", volcRequest.Request.WithFrontend)
+	fmt.Printf("  ✓ request.frontend_type: %s\n", volcRequest.Request.FrontendType)
+	if volcRequest.Request.Model != "" {
+		fmt.Printf("  ⚠ request.model:       %s (可能导致问题)\n", volcRequest.Request.Model)
+	}
+	fmt.Printf("\n")
 
 	return bytes.NewReader(jsonData), nil
 }
@@ -365,10 +462,15 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	fmt.Printf("\n🔍 [GetRequestURL] 开始构建请求URL\n")
+	fmt.Printf("🔍 [GetRequestURL] RelayMode: %d\n", info.RelayMode)
+	fmt.Printf("🔍 [GetRequestURL] IsStream: %v\n", info.IsStream)
+
 	baseUrl := info.ChannelBaseUrl
 	if baseUrl == "" {
 		baseUrl = channelconstant.ChannelBaseURLs[channelconstant.ChannelTypeVolcEngine]
 	}
+	fmt.Printf("🔍 [GetRequestURL] BaseURL: %s\n", baseUrl)
 
 	switch info.RelayFormat {
 	case types.RelayFormatClaude:
@@ -396,12 +498,18 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			// 根据 IsStream 标志决定使用 WebSocket 还是 HTTP
 			if baseUrl == channelconstant.ChannelBaseURLs[channelconstant.ChannelTypeVolcEngine] {
 				if info.IsStream {
-					return "wss://openspeech.bytedance.com/api/v1/tts/ws_binary", nil
+					url := "wss://openspeech.bytedance.com/api/v1/tts/ws_binary"
+					fmt.Printf("🔍 [GetRequestURL] 返回 WebSocket URL: %s\n", url)
+					return url, nil
 				}
 				// HTTP 同步模式 (operation=query)
-				return "https://openspeech.bytedance.com/api/v1/tts", nil
+				url := "https://openspeech.bytedance.com/api/v1/tts"
+				fmt.Printf("🔍 [GetRequestURL] 返回 HTTP URL: %s\n", url)
+				return url, nil
 			}
-			return fmt.Sprintf("%s/v1/audio/speech", baseUrl), nil
+			customUrl := fmt.Sprintf("%s/v1/audio/speech", baseUrl)
+			fmt.Printf("🔍 [GetRequestURL] 返回自定义 URL: %s\n", customUrl)
+			return customUrl, nil
 		default:
 		}
 	}
@@ -452,25 +560,41 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
+	fmt.Printf("\n🔍 [DoRequest] 开始发送请求\n")
+	fmt.Printf("🔍 [DoRequest] RelayMode: %d\n", info.RelayMode)
+
 	if info.RelayMode == constant.RelayModeAudioSpeech {
 		baseUrl := info.ChannelBaseUrl
 		if baseUrl == "" {
 			baseUrl = channelconstant.ChannelBaseURLs[channelconstant.ChannelTypeVolcEngine]
 		}
 
+		fmt.Printf("🔍 [DoRequest] BaseURL: %s\n", baseUrl)
+		fmt.Printf("🔍 [DoRequest] IsStream: %v\n", info.IsStream)
+
 		if baseUrl == channelconstant.ChannelBaseURLs[channelconstant.ChannelTypeVolcEngine] {
 			if info.IsStream {
+				fmt.Printf("🔍 [DoRequest] WebSocket 流式模式,返回 nil (由 DoResponse 处理)\n")
 				return nil, nil
 			}
 		}
 	}
+
+	fmt.Printf("🔍 [DoRequest] 执行标准 HTTP 请求\n")
 	return channel.DoApiRequest(a, c, info, requestBody)
 }
 
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
+	fmt.Printf("\n🔍 [DoResponse] 开始处理响应\n")
+	fmt.Printf("🔍 [DoResponse] RelayMode: %d\n", info.RelayMode)
+
 	if info.RelayMode == constant.RelayModeAudioSpeech {
 		encoding := mapEncoding(c.GetString(contextKeyResponseFormat))
+		fmt.Printf("🔍 [DoResponse] Audio Encoding: %s\n", encoding)
+		fmt.Printf("🔍 [DoResponse] IsStream: %v\n", info.IsStream)
+
 		if info.IsStream {
+			fmt.Printf("🔍 [DoResponse] 处理 WebSocket 流式响应\n")
 			volcRequestInterface, exists := c.Get(contextKeyTTSRequest)
 			if !exists {
 				return nil, types.NewErrorWithStatusCode(
@@ -500,9 +624,14 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 			}
 			return handleTTSWebSocketResponse(c, requestURL, volcRequest, info, encoding)
 		}
+		fmt.Printf("🔍 [DoResponse] 处理 HTTP 同步响应\n")
+		if resp != nil {
+			fmt.Printf("🔍 [DoResponse] HTTP Status: %d\n", resp.StatusCode)
+		}
 		return handleTTSResponse(c, resp, info, encoding)
 	}
 
+	fmt.Printf("🔍 [DoResponse] 使用 OpenAI 适配器处理响应\n")
 	adaptor := openai.Adaptor{}
 	usage, err = adaptor.DoResponse(c, resp, info)
 	return

@@ -145,8 +145,13 @@ func getContentTypeByEncoding(encoding string) string {
 }
 
 func handleTTSResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo, encoding string) (usage any, err *types.NewAPIError) {
+	fmt.Printf("\n🔍 [handleTTSResponse] 开始处理 HTTP TTS 响应\n")
+	fmt.Printf("🔍 [handleTTSResponse] HTTP Status: %d\n", resp.StatusCode)
+	fmt.Printf("🔍 [handleTTSResponse] Encoding: %s\n", encoding)
+
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
+		fmt.Printf("❌ [handleTTSResponse] 读取响应失败: %v\n", readErr)
 		return nil, types.NewErrorWithStatusCode(
 			errors.New("failed to read volcengine response"),
 			types.ErrorCodeReadResponseBodyFailed,
@@ -155,8 +160,12 @@ func handleTTSResponse(c *gin.Context, resp *http.Response, info *relaycommon.Re
 	}
 	defer resp.Body.Close()
 
+	fmt.Printf("🔍 [handleTTSResponse] 响应 Body 长度: %d bytes\n", len(body))
+	fmt.Printf("🔍 [handleTTSResponse] 响应 Body (前200字符): %s\n", string(body[:min(200, len(body))]))
+
 	var volcResp VolcengineTTSResponse
 	if unmarshalErr := json.Unmarshal(body, &volcResp); unmarshalErr != nil {
+		fmt.Printf("❌ [handleTTSResponse] JSON 解析失败: %v\n", unmarshalErr)
 		return nil, types.NewErrorWithStatusCode(
 			errors.New("failed to parse volcengine response"),
 			types.ErrorCodeBadResponseBody,
@@ -164,7 +173,12 @@ func handleTTSResponse(c *gin.Context, resp *http.Response, info *relaycommon.Re
 		)
 	}
 
+	fmt.Printf("🔍 [handleTTSResponse] 豆包响应码: %d\n", volcResp.Code)
+	fmt.Printf("🔍 [handleTTSResponse] 豆包消息: %s\n", volcResp.Message)
+	fmt.Printf("🔍 [handleTTSResponse] ReqID: %s\n", volcResp.ReqID)
+
 	if volcResp.Code != 3000 {
+		fmt.Printf("❌ [handleTTSResponse] 豆包返回错误码: %d, 消息: %s\n", volcResp.Code, volcResp.Message)
 		return nil, types.NewErrorWithStatusCode(
 			errors.New(volcResp.Message),
 			types.ErrorCodeBadResponse,
@@ -172,8 +186,11 @@ func handleTTSResponse(c *gin.Context, resp *http.Response, info *relaycommon.Re
 		)
 	}
 
+	fmt.Printf("🔍 [handleTTSResponse] 音频数据长度(Base64): %d 字符\n", len(volcResp.Data))
+
 	audioData, decodeErr := base64.StdEncoding.DecodeString(volcResp.Data)
 	if decodeErr != nil {
+		fmt.Printf("❌ [handleTTSResponse] Base64 解码失败: %v\n", decodeErr)
 		return nil, types.NewErrorWithStatusCode(
 			errors.New("failed to decode audio data"),
 			types.ErrorCodeBadResponseBody,
@@ -181,9 +198,15 @@ func handleTTSResponse(c *gin.Context, resp *http.Response, info *relaycommon.Re
 		)
 	}
 
+	fmt.Printf("🔍 [handleTTSResponse] 音频数据长度(解码后): %d bytes\n", len(audioData))
+
 	contentType := getContentTypeByEncoding(encoding)
+	fmt.Printf("🔍 [handleTTSResponse] Content-Type: %s\n", contentType)
+
 	c.Header("Content-Type", contentType)
 	c.Data(http.StatusOK, contentType, audioData)
+
+	fmt.Printf("✅ [handleTTSResponse] 成功返回音频数据\n")
 
 	usage = &dto.Usage{
 		PromptTokens:     info.PromptTokens,
