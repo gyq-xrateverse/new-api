@@ -92,14 +92,16 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 			UID: "openai_relay_user",
 		},
 		Audio: VolcengineTTSAudio{
-			VoiceType:  voiceType,
-			Encoding:   encoding,
-			SpeedRatio: speedRatio,
-			Rate:       24000,
+			VoiceType:   voiceType,
+			Encoding:    encoding,
+			SpeedRatio:  speedRatio,
+			VolumeRatio: 1.0,  // 默认音量
+			PitchRatio:  1.0,  // 默认音调
 		},
 		Request: VolcengineTTSReqInfo{
 			ReqID:        generateRequestID(),
 			Text:         request.Input,
+			TextType:     "plain",  // 🔧 豆包要求指定文本类型
 			Operation:    "submit",
 			Model:        "",  // 🔧 豆包 TTS API 不需要 model 参数,留空避免 403 错误
 			WithFrontend: 1,

@@ -39,7 +39,9 @@ type VolcengineTTSAudio struct {
 	VoiceType        string  `json:"voice_type"`
 	Encoding         string  `json:"encoding"`
 	SpeedRatio       float64 `json:"speed_ratio"`
-	Rate             int     `json:"rate"`
+	VolumeRatio      float64 `json:"volume_ratio,omitempty"`    // 音量比例,默认1.0
+	PitchRatio       float64 `json:"pitch_ratio,omitempty"`     // 音调比例,默认1.0
+	Rate             int     `json:"rate,omitempty"`            // 采样率,可选
 	Bitrate          int     `json:"bitrate,omitempty"`
 	LoudnessRatio    float64 `json:"loudness_ratio,omitempty"`
 	EnableEmotion    bool    `json:"enable_emotion,omitempty"`
