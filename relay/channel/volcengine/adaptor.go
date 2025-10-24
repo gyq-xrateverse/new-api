@@ -73,10 +73,12 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 			Rate:       24000,
 		},
 		Request: VolcengineTTSReqInfo{
-			ReqID:     generateRequestID(),
-			Text:      request.Input,
-			Operation: "submit",
-			Model:     info.OriginModelName,
+			ReqID:        generateRequestID(),
+			Text:         request.Input,
+			Operation:    "submit",
+			Model:        info.OriginModelName,
+			WithFrontend: 1,
+			FrontendType: "unitTson",
 		},
 	}
 

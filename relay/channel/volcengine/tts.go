@@ -57,6 +57,8 @@ type VolcengineTTSReqInfo struct {
 	TextType        string                   `json:"text_type,omitempty"`
 	SilenceDuration float64                  `json:"silence_duration,omitempty"`
 	WithTimestamp   interface{}              `json:"with_timestamp,omitempty"`
+	WithFrontend    int                      `json:"with_frontend,omitempty"`
+	FrontendType    string                   `json:"frontend_type,omitempty"`
 	ExtraParam      *VolcengineTTSExtraParam `json:"extra_param,omitempty"`
 }
 
