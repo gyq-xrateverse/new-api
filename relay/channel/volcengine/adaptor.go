@@ -88,8 +88,12 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 
 	c.Set(contextKeyTTSRequest, volcRequest)
 
+	// 根据 operation 设置流式标志
 	if volcRequest.Request.Operation == "submit" {
 		info.IsStream = true
+	} else {
+		// query 模式或其他模式使用 HTTP 同步
+		info.IsStream = false
 	}
 
 	jsonData, err := json.Marshal(volcRequest)
@@ -387,8 +391,13 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		case constant.RelayModeRerank:
 			return fmt.Sprintf("%s/api/v3/rerank", baseUrl), nil
 		case constant.RelayModeAudioSpeech:
+			// 根据 IsStream 标志决定使用 WebSocket 还是 HTTP
 			if baseUrl == channelconstant.ChannelBaseURLs[channelconstant.ChannelTypeVolcEngine] {
-				return "wss://openspeech.bytedance.com/api/v1/tts/ws_binary", nil
+				if info.IsStream {
+					return "wss://openspeech.bytedance.com/api/v1/tts/ws_binary", nil
+				}
+				// HTTP 同步模式 (operation=query)
+				return "https://openspeech.bytedance.com/api/v1/tts", nil
 			}
 			return fmt.Sprintf("%s/v1/audio/speech", baseUrl), nil
 		default:
