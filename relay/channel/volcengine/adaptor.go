@@ -505,21 +505,17 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		case constant.RelayModeRerank:
 			return fmt.Sprintf("%s/api/v3/rerank", baseUrl), nil
 		case constant.RelayModeAudioSpeech:
+			// 🔧 豆包 TTS 必须使用专用域名 openspeech.bytedance.com,不能使用通用的 ark 域名
 			// 根据 IsStream 标志决定使用 WebSocket 还是 HTTP
-			if baseUrl == channelconstant.ChannelBaseURLs[channelconstant.ChannelTypeVolcEngine] {
-				if info.IsStream {
-					url := "wss://openspeech.bytedance.com/api/v1/tts/ws_binary"
-					fmt.Printf("🔍 [GetRequestURL] 返回 WebSocket URL: %s\n", url)
-					return url, nil
-				}
-				// HTTP 同步模式 (operation=query)
-				url := "https://openspeech.bytedance.com/api/v1/tts"
-				fmt.Printf("🔍 [GetRequestURL] 返回 HTTP URL: %s\n", url)
+			if info.IsStream {
+				url := "wss://openspeech.bytedance.com/api/v1/tts/ws_binary"
+				fmt.Printf("🔍 [GetRequestURL] 返回 WebSocket URL: %s\n", url)
 				return url, nil
 			}
-			customUrl := fmt.Sprintf("%s/v1/audio/speech", baseUrl)
-			fmt.Printf("🔍 [GetRequestURL] 返回自定义 URL: %s\n", customUrl)
-			return customUrl, nil
+			// HTTP 同步模式 (operation=query)
+			url := "https://openspeech.bytedance.com/api/v1/tts"
+			fmt.Printf("🔍 [GetRequestURL] 返回 HTTP URL: %s\n", url)
+			return url, nil
 		default:
 		}
 	}
