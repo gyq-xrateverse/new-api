@@ -1,4 +1,4 @@
-name: 发布 Docker 镜像到阿里云
+name: Build and Push New-API Docker Images
 
 on:
   workflow_dispatch:  # Manual trigger
